@@ -3,7 +3,9 @@ import type { AppProps } from "next/app";
 import "../styles/globals.css";
 
 function MyApp({ Component, pageProps }: AppProps) {
-  const activeChain = "mumbai";
+  // Keep the historical Mumbai network as the local/demo default only.
+  // Production deployments must set NEXT_PUBLIC_ACTIVE_CHAIN explicitly.
+  const activeChain = process.env.NEXT_PUBLIC_ACTIVE_CHAIN ?? "mumbai";
 
   return (
     <ThirdwebProvider activeChain={activeChain}>
