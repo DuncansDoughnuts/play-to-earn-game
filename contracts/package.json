@@ -3,9 +3,9 @@
   "private": true,
   "scripts": {
     "compile": "hardhat compile",
-    "build": "npx thirdweb@latest build",
-    "deploy": "npx thirdweb@latest deploy",
-    "release": "npx thirdweb@latest release"
+    "build": "npx --yes thirdweb@5.121.1 build",
+    "deploy": "npx --yes thirdweb@5.121.1 deploy",
+    "publish": "npx --yes thirdweb@5.121.1 publish"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "2.0.6",
@@ -15,9 +15,9 @@
     "ethers": "5.6.9"
   },
   "dependencies": {
-    "hardhat": "2.9.3",
     "@openzeppelin/contracts": "4.6.0",
     "@openzeppelin/contracts-upgradeable": "4.6.0",
-    "@thirdweb-dev/contracts": "3.1.2"
+    "@thirdweb-dev/contracts": "3.1.2",
+    "hardhat": "2.9.3"
   }
 }
