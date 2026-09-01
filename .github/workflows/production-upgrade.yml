@@ -5,15 +5,12 @@ on:
     branches: [production/hardening-2026-09-01]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  application:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: application
+    timeout-minutes: 30
     env:
       NEXT_PUBLIC_APP_VERSION: '0.1.0'
       NEXT_PUBLIC_ACTIVE_CHAIN: 'mumbai'
@@ -27,46 +24,50 @@ jobs:
         with:
           node-version: 20
           package-manager-cache: false
-      - name: Resolve supported Next.js and lock dependencies
-        run: npm install --save-exact --package-lock-only next@15.5.24 eslint-config-next@15.5.24
-      - name: Deterministic install
-        run: npm ci --no-audit --no-fund
-      - name: Lint
-        run: npm run lint
-      - name: Type check
-        run: npx tsc --noEmit
-      - name: Production build
-        run: npm run build
-      - name: Upload application manifests
-        uses: actions/upload-artifact@v7
-        with:
-          name: application-production-manifests
-          path: |
-            application/package.json
-            application/package-lock.json
-          retention-days: 2
 
-  contracts:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
+      - name: Resolve supported application toolchain
+        working-directory: application
+        run: |
+          npm pkg set 'scripts.lint=eslint . --ext .js,.jsx,.ts,.tsx'
+          npm install --save-exact --package-lock-only next@15.5.24 eslint-config-next@15.5.24
+          npm install --save-dev --save-exact --package-lock-only eslint@8.57.1
+      - name: Install application deterministically
+        working-directory: application
+        run: npm ci --no-audit --no-fund
+      - name: Lint application
+        working-directory: application
+        run: npm run lint
+      - name: Type check application
+        working-directory: application
+        run: npx tsc --noEmit
+      - name: Build application
+        working-directory: application
+        run: npm run build
+
+      - name: Pin contract tooling and lock dependencies
         working-directory: contracts
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 20
-          package-manager-cache: false
-      - name: Generate deterministic lockfile
-        run: npm install --package-lock-only --ignore-scripts
-      - name: Deterministic install
+        run: |
+          npm pkg set 'scripts.build=npx --yes thirdweb@5.121.1 build'
+          npm pkg set 'scripts.deploy=npx --yes thirdweb@5.121.1 deploy'
+          npm pkg set 'scripts.publish=npx --yes thirdweb@5.121.1 publish'
+          npm pkg delete scripts.release
+          npm install --package-lock-only --ignore-scripts
+      - name: Install contracts deterministically
+        working-directory: contracts
         run: npm ci --no-audit --no-fund
       - name: Compile contracts
+        working-directory: contracts
         run: npm run compile
-      - name: Upload contract manifest
-        uses: actions/upload-artifact@v7
-        with:
-          name: contract-production-manifest
-          path: contracts/package-lock.json
-          retention-days: 2
+
+      - name: Persist verified manifests
+        shell: bash
+        run: |
+          if git diff --quiet -- application/package.json application/package-lock.json contracts/package.json contracts/package-lock.json; then
+            echo 'Dependency manifests already match the verified production state.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add application/package.json application/package-lock.json contracts/package.json contracts/package-lock.json
+          git commit -m 'prod: pin supported application and contract toolchains'
+          git push origin HEAD:production/hardening-2026-09-01
